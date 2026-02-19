@@ -1,24 +1,29 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGame } from "../../hooks/useGameState";
 import { questions } from "../../data/questions";
-import { startQuestionAPI, resetGameAPI, isConnected } from "../../utils/api";
+import { fetchFormUrls, resetGameAPI, isConnected } from "../../utils/api";
 
-/**
- * 管理者用操作パネル
- * URL に ?admin=true がある場合のみ表示
- * 正解はその場で管理者が A/B/C/D から選択する (競馬方式)
- */
 export default function AdminPanel() {
   const { state, actions } = useGame();
   const [confirming, setConfirming] = useState(null);
+  const [formUrls, setFormUrls] = useState({});
 
   const isAdmin =
     new URLSearchParams(window.location.search).get("admin") === "true";
+
+  // 初回にフォームURLを取得
+  useEffect(() => {
+    if (isAdmin) {
+      fetchFormUrls().then(setFormUrls);
+    }
+  }, [isAdmin]);
+
   if (!isAdmin) return null;
 
   const isFirstQuestion = state.currentQuestionIndex === 0;
   const isLastQuestion = state.currentQuestionIndex >= questions.length - 1;
   const currentQuestion = questions[state.currentQuestionIndex];
+  const currentFormUrl = formUrls[currentQuestion.id];
 
   const phaseLabels = {
     waiting: "待機中",
@@ -27,12 +32,10 @@ export default function AdminPanel() {
     revealed: "発表完了",
   };
 
-  const handleStart = async () => {
-    await startQuestionAPI(currentQuestion.id);
+  const handleStart = () => {
     actions.startQuestion();
   };
 
-  /** 正解選択: 確認ステップ付き */
   const handleSelectAnswer = (choiceId) => {
     setConfirming(choiceId);
   };
@@ -51,7 +54,9 @@ export default function AdminPanel() {
 
   const handleReset = async () => {
     if (
-      window.confirm("ゲームをリセットしますか？ スコアと履歴がすべて初期化されます。")
+      window.confirm(
+        "ゲームをリセットしますか？ スコアと履歴がすべて初期化されます。"
+      )
     ) {
       await resetGameAPI();
       actions.resetGame();
@@ -73,6 +78,26 @@ export default function AdminPanel() {
         </span>
       </div>
 
+      {/* フォームURL表示 (回答受付中に参加者へ共有) */}
+      {currentFormUrl && state.phase === "answering" && (
+        <div className="admin-panel__form-url">
+          <span>📋 フォームURL:</span>
+          <a
+            href={currentFormUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {currentFormUrl}
+          </a>
+          <button
+            className="admin-panel__btn admin-panel__btn--copy"
+            onClick={() => navigator.clipboard.writeText(currentFormUrl)}
+          >
+            コピー
+          </button>
+        </div>
+      )}
+
       <div className="admin-panel__controls">
         <button
           className="admin-panel__btn admin-panel__btn--prev"
@@ -93,7 +118,6 @@ export default function AdminPanel() {
           </button>
         )}
 
-        {/* 正解選択ボタン群: answering フェーズで表示 */}
         {state.phase === "answering" && !confirming && (
           <div className="admin-panel__answer-select">
             <span className="admin-panel__answer-label">正解を選択:</span>
@@ -109,7 +133,6 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* 確認ダイアログ */}
         {confirming && (
           <div className="admin-panel__confirm">
             <span className="admin-panel__confirm-text">

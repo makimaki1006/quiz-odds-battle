@@ -1,65 +1,40 @@
 /**
  * Quiz Odds Battle - Google Apps Script API
- *
- * ============================
- * セットアップ手順
- * ============================
- * 1. Google スプレッドシートを新規作成
- * 2. Google フォームを新規作成 (詳細は gas/SETUP.md 参照)
- *    - フィールド1: 「チーム名」(プルダウン) → チーム1〜チーム5
- *    - フィールド2: 「回答」(ラジオボタン) → A, B, C, D
- * 3. フォームの「回答」タブ → スプレッドシートにリンク → 上記スプレッドシートを選択
- * 4. スプレッドシートで 拡張機能 → Apps Script → このコードを貼り付け
- * 5. デプロイ → ウェブアプリ → アクセスできるユーザー: 全員 → デプロイ
- * 6. 表示されたURLを React の .env に VITE_GAS_URL として設定
- *
- * ============================
- * API仕様
- * ============================
- * POST リクエスト (body: JSON文字列)
- *
- * action: "startQuestion"
- *   - questionId: number
- *   - 現在のスプレッドシート行数を記録し、以降の回答をこの問題に紐付ける
- *
- * action: "getAnswers"
- *   - questionId: number
- *   - startQuestion 以降に追加された行から回答を取得
- *   - 戻り値: { answers: { teamId: choiceId } }
- *
- * action: "resetGame"
- *   - 全問題の開始行をリセット
+ * 1問 = 1フォーム = 1シート の構成
  */
 
 // ===== 設定 =====
-// フォームのスプレッドシートに自動作成されるシート名
-// (フォーム連携すると「フォームの回答 1」等になる。必要に応じて変更)
-var SHEET_NAME = "フォームの回答 1";
+var SPREADSHEET_ID = "1ONRuKUJhvuoHamicV5mgDJaFHUFpZxVSnfBRjCmmJlU";
 
-// フォームの列ヘッダー名 (フォームの質問テキストと一致させる)
 var TEAM_COLUMN = "チーム名";
 var ANSWER_COLUMN = "回答";
 
-// チーム名 → チームID のマッピング
 var TEAM_MAP = {
-  "チーム1": 1,
-  "チーム2": 2,
-  "チーム3": 3,
-  "チーム4": 4,
-  "チーム5": 5
+  "チーム1": 1, "チーム2": 2, "チーム3": 3,
+  "チーム4": 4, "チーム5": 5
 };
+
+// 問題データ (React側の questions.js と一致させる)
+var QUESTIONS = [
+  { id: 1, text: "日本で一番高い山は？", choices: ["A:富士山", "B:北岳", "C:奥穂高岳", "D:間ノ岳"] },
+  { id: 2, text: "太陽系で一番大きい惑星は？", choices: ["A:土星", "B:木星", "C:天王星", "D:海王星"] },
+  { id: 3, text: "日本の首都が東京に移されたのは何年？", choices: ["A:1853年", "B:1868年", "C:1872年", "D:1889年"] },
+  { id: 4, text: "水の化学式はどれ？", choices: ["A:CO2", "B:NaCl", "C:H2O", "D:O2"] },
+  { id: 5, text: "「吾輩は猫である」の作者は？", choices: ["A:芥川龍之介", "B:太宰治", "C:夏目漱石", "D:川端康成"] }
+];
+
+var TEAM_NAMES = ["チーム1", "チーム2", "チーム3", "チーム4", "チーム5"];
 
 // ===== メインハンドラ =====
 
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
-
     switch (data.action) {
-      case "startQuestion":
-        return jsonResponse(startQuestion(data.questionId));
       case "getAnswers":
         return jsonResponse(getAnswers(data.questionId));
+      case "getFormUrls":
+        return jsonResponse(getFormUrls());
       case "resetGame":
         return jsonResponse(resetGame());
       default:
@@ -74,51 +49,30 @@ function doGet() {
   return jsonResponse({
     status: "ok",
     message: "Quiz Odds Battle API",
-    currentQuestion: getCurrentQuestion()
+    formUrls: getFormUrls()
   });
 }
 
 // ===== API関数 =====
 
 /**
- * 問題の回答受付を開始する
- * 現在のスプレッドシート最終行を記録し、以降の行をこの問題の回答とみなす
- */
-function startQuestion(questionId) {
-  var sheet = getSheet();
-  var lastRow = sheet.getLastRow();
-
-  var props = PropertiesService.getScriptProperties();
-  props.setProperty("q_" + questionId + "_start", String(lastRow + 1));
-  props.setProperty("currentQuestion", String(questionId));
-
-  return {
-    success: true,
-    questionId: questionId,
-    startRow: lastRow + 1
-  };
-}
-
-/**
- * 指定された問題の回答を取得する
- * startQuestion で記録した行以降の回答を返す
+ * 指定された問題の回答を取得
+ * シート「Q{questionId}」から読み取る
  */
 function getAnswers(questionId) {
-  var props = PropertiesService.getScriptProperties();
-  var startRow = parseInt(props.getProperty("q_" + questionId + "_start") || "0", 10);
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheetName = "Q" + questionId;
+  var sheet = ss.getSheetByName(sheetName);
 
-  if (startRow === 0) {
-    return { answers: {}, message: "Question not started yet" };
+  if (!sheet) {
+    return { answers: {}, error: "Sheet '" + sheetName + "' not found" };
   }
 
-  var sheet = getSheet();
   var lastRow = sheet.getLastRow();
-
-  if (lastRow < startRow) {
+  if (lastRow < 2) {
     return { answers: {} };
   }
 
-  // ヘッダー行を読む
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   var teamColIdx = headers.indexOf(TEAM_COLUMN);
   var answerColIdx = headers.indexOf(ANSWER_COLUMN);
@@ -126,22 +80,18 @@ function getAnswers(questionId) {
   if (teamColIdx === -1 || answerColIdx === -1) {
     return {
       answers: {},
-      error: "Column not found. Expected: '" + TEAM_COLUMN + "', '" + ANSWER_COLUMN + "'. Found: " + headers.join(", ")
+      error: "Column not found. Headers: " + headers.join(", ")
     };
   }
 
-  // 開始行〜最終行のデータを取得
-  var numRows = lastRow - startRow + 1;
-  var data = sheet.getRange(startRow, 1, numRows, sheet.getLastColumn()).getValues();
-
+  var data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
   var answers = {};
+
   for (var i = 0; i < data.length; i++) {
     var teamName = String(data[i][teamColIdx]).trim();
     var answer = String(data[i][answerColIdx]).trim();
     var teamId = TEAM_MAP[teamName];
-
     if (teamId && answer) {
-      // 同じチームが複数回答した場合、最新の回答で上書き
       answers[teamId] = answer;
     }
   }
@@ -150,33 +100,128 @@ function getAnswers(questionId) {
 }
 
 /**
- * ゲームをリセット (全問題の開始行情報をクリア)
+ * 全問題のフォームURLを返す
+ */
+function getFormUrls() {
+  var props = PropertiesService.getScriptProperties();
+  var urls = {};
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    var qId = QUESTIONS[i].id;
+    var url = props.getProperty("formUrl_" + qId);
+    if (url) {
+      urls[qId] = url;
+    }
+  }
+  return urls;
+}
+
+/**
+ * ゲームリセット: 全シートの回答データをクリア (ヘッダーは残す)
  */
 function resetGame() {
-  var props = PropertiesService.getScriptProperties();
-  props.deleteAllProperties();
-  return { success: true, message: "Game reset" };
-}
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var cleared = [];
 
-// ===== ヘルパー関数 =====
-
-function getSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_NAME);
-
-  if (!sheet) {
-    // シート名が違う場合、最初のシートを使用
-    sheet = ss.getSheets()[0];
-    Logger.log("Sheet '" + SHEET_NAME + "' not found. Using first sheet: " + sheet.getName());
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    var sheetName = "Q" + QUESTIONS[i].id;
+    var sheet = ss.getSheetByName(sheetName);
+    if (sheet && sheet.getLastRow() > 1) {
+      sheet.deleteRows(2, sheet.getLastRow() - 1);
+      cleared.push(sheetName);
+    }
   }
 
-  return sheet;
+  return { success: true, cleared: cleared };
 }
 
-function getCurrentQuestion() {
+// ===== セットアップ: 全フォーム一括作成 =====
+
+/**
+ * 全問題のフォームを一括作成
+ * GASエディタで「setupAllForms」を選択して ▶ 実行
+ */
+function setupAllForms() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var props = PropertiesService.getScriptProperties();
-  return parseInt(props.getProperty("currentQuestion") || "0", 10);
+
+  Logger.log("========================================");
+  Logger.log("Quiz Odds Battle - フォーム一括作成");
+  Logger.log("========================================\n");
+
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    var q = QUESTIONS[i];
+    var sheetName = "Q" + q.id;
+
+    // フォーム作成
+    var form = FormApp.create("Q" + q.id + ". " + q.text);
+    form.setDescription(
+      "【Q" + q.id + "】" + q.text + "\n\n" +
+      q.choices.join("\n") + "\n\n" +
+      "チーム名と回答 (A/B/C/D) を選んで送信してください。"
+    );
+    form.setConfirmationMessage("回答を送信しました！");
+    form.setAllowResponseEdits(false);
+    form.setLimitOneResponsePerUser(false);
+
+    // チーム名 (プルダウン)
+    var teamItem = form.addListItem();
+    teamItem.setTitle("チーム名");
+    teamItem.setRequired(true);
+    teamItem.setChoiceValues(TEAM_NAMES);
+
+    // 回答 (ラジオボタン)
+    var answerItem = form.addMultipleChoiceItem();
+    answerItem.setTitle("回答");
+    answerItem.setRequired(true);
+    answerItem.setChoiceValues(["A", "B", "C", "D"]);
+
+    // スプレッドシートにリンク
+    form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+
+    // フォームが作成したシートをリネーム
+    SpreadsheetApp.flush();
+    Utilities.sleep(2000);
+
+    // 最後に追加されたシート (フォーム連携で自動作成されたもの) を探す
+    var sheets = ss.getSheets();
+    for (var j = 0; j < sheets.length; j++) {
+      var name = sheets[j].getName();
+      if (name.indexOf("フォームの回答") !== -1) {
+        // まだリネームされていないシートを見つけた
+        var alreadyRenamed = false;
+        for (var k = 0; k < QUESTIONS.length; k++) {
+          if (name === "Q" + QUESTIONS[k].id) {
+            alreadyRenamed = true;
+            break;
+          }
+        }
+        if (!alreadyRenamed) {
+          sheets[j].setName(sheetName);
+          break;
+        }
+      }
+    }
+
+    // フォームURLを保存
+    props.setProperty("formUrl_" + q.id, form.getPublishedUrl());
+
+    Logger.log("✅ Q" + q.id + " 作成完了");
+    Logger.log("   問題: " + q.text);
+    Logger.log("   フォーム: " + form.getPublishedUrl());
+    Logger.log("   シート: " + sheetName);
+    Logger.log("");
+  }
+
+  Logger.log("========================================");
+  Logger.log("✅ 全 " + QUESTIONS.length + " 問のフォーム作成完了！");
+  Logger.log("========================================");
+  Logger.log("");
+  Logger.log("👉 次のステップ:");
+  Logger.log("   デプロイ → 新しいデプロイ → ウェブアプリ → 全員 → デプロイ");
+  Logger.log("   デプロイURLを React の .env に VITE_GAS_URL として設定");
 }
+
+// ===== ヘルパー =====
 
 function jsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))

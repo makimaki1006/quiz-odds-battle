@@ -708,6 +708,44 @@ body {
   background: var(--red);
 }
 
+.admin-panel__form-url {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  background: rgba(0, 184, 148, 0.1);
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  font-size: var(--font-size-sm);
+}
+
+.admin-panel__form-url span {
+  white-space: nowrap;
+  color: var(--green);
+  font-weight: 700;
+}
+
+.admin-panel__form-url a {
+  color: var(--white);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.admin-panel__form-url a:hover {
+  text-decoration: underline;
+}
+
+.admin-panel__btn--copy {
+  background: var(--green);
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  white-space: nowrap;
+}
+
 .admin-panel__answer-select {
   display: flex;
   align-items: center;
