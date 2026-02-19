@@ -8,6 +8,7 @@ import OddsBoard from "../odds/OddsBoard";
 import TeamStatus from "../teams/TeamStatus";
 import Scoreboard from "../scoreboard/Scoreboard";
 import ResultHistory from "../scoreboard/ResultHistory";
+import FinalResults from "../scoreboard/FinalResults";
 import AdminPanel from "../admin/AdminPanel";
 import ConfettiEffect from "../effects/ConfettiEffect";
 import RevealAnimation from "../effects/RevealAnimation";
@@ -27,6 +28,16 @@ export default function Dashboard() {
   }, [state.phase, currentQuestion, actions]);
 
   usePolling(pollAnswers, 5000, state.phase === "answering");
+
+  // 最終結果画面
+  if (state.phase === "finished") {
+    return (
+      <div className="dashboard">
+        <FinalResults />
+        <AdminPanel />
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard">

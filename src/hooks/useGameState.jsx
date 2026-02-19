@@ -10,6 +10,7 @@ const ActionTypes = {
   COMPLETE_REVEAL: "COMPLETE_REVEAL",
   NEXT_QUESTION: "NEXT_QUESTION",
   PREV_QUESTION: "PREV_QUESTION",
+  FINISH_GAME: "FINISH_GAME",
   RESET_GAME: "RESET_GAME",
 };
 
@@ -20,13 +21,12 @@ function createInitialState() {
   });
 
   return {
-    phase: "waiting",
+    phase: "waiting", // waiting | answering | revealing | revealed | finished
     currentQuestionIndex: 0,
     teamAnswers: {},
     scores: initialScores,
     odds: {},
     revealedAnswer: null,
-    // 結果履歴: 各問題の正解・オッズ・チーム別スコア変動を記録
     results: [],
   };
 }
@@ -51,41 +51,25 @@ function gameReducer(state, action) {
         teamAnswers,
         teams.length
       );
-      return {
-        ...state,
-        teamAnswers,
-        odds: newOdds,
-      };
+      return { ...state, teamAnswers, odds: newOdds };
     }
 
     case ActionTypes.REVEAL_ANSWER: {
-      // 管理者がその場で正解を選択する
       const { correctAnswer } = action.payload;
-      return {
-        ...state,
-        phase: "revealing",
-        revealedAnswer: correctAnswer,
-      };
+      return { ...state, phase: "revealing", revealedAnswer: correctAnswer };
     }
 
     case ActionTypes.COMPLETE_REVEAL: {
       const currentQuestion = questions[state.currentQuestionIndex];
       const correctAnswer = state.revealedAnswer;
       const newScores = calculateScores(
-        state.scores,
-        state.teamAnswers,
-        correctAnswer,
-        state.odds
+        state.scores, state.teamAnswers, correctAnswer, state.odds
       );
 
-      // 結果を履歴に記録
       const teamResults = {};
       teams.forEach((team) => {
         const delta = getScoreDelta(
-          team.id,
-          state.teamAnswers,
-          correctAnswer,
-          state.odds
+          team.id, state.teamAnswers, correctAnswer, state.odds
         );
         teamResults[team.id] = {
           answer: state.teamAnswers[team.id] || null,
@@ -139,6 +123,10 @@ function gameReducer(state, action) {
       };
     }
 
+    case ActionTypes.FINISH_GAME: {
+      return { ...state, phase: "finished" };
+    }
+
     case ActionTypes.RESET_GAME: {
       return createInitialState();
     }
@@ -164,7 +152,6 @@ export function useGame() {
   if (!context) {
     throw new Error("useGame は GameProvider 内で使用してください");
   }
-
   const { state, dispatch } = context;
 
   const startQuestion = useCallback(() => {
@@ -173,21 +160,14 @@ export function useGame() {
 
   const updateAnswers = useCallback(
     (teamAnswers) => {
-      dispatch({
-        type: ActionTypes.UPDATE_ANSWERS,
-        payload: { teamAnswers },
-      });
+      dispatch({ type: ActionTypes.UPDATE_ANSWERS, payload: { teamAnswers } });
     },
     [dispatch]
   );
 
-  // 管理者がその場で正解を選ぶ
   const revealAnswer = useCallback(
     (correctAnswer) => {
-      dispatch({
-        type: ActionTypes.REVEAL_ANSWER,
-        payload: { correctAnswer },
-      });
+      dispatch({ type: ActionTypes.REVEAL_ANSWER, payload: { correctAnswer } });
     },
     [dispatch]
   );
@@ -204,6 +184,10 @@ export function useGame() {
     dispatch({ type: ActionTypes.PREV_QUESTION });
   }, [dispatch]);
 
+  const finishGame = useCallback(() => {
+    dispatch({ type: ActionTypes.FINISH_GAME });
+  }, [dispatch]);
+
   const resetGame = useCallback(() => {
     dispatch({ type: ActionTypes.RESET_GAME });
   }, [dispatch]);
@@ -218,6 +202,7 @@ export function useGame() {
       completeReveal,
       nextQuestion,
       prevQuestion,
+      finishGame,
       resetGame,
     },
   };

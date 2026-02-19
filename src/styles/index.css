@@ -965,6 +965,196 @@ body {
 }
 
 /* =============================================
+   FinalResults - 最終結果画面
+   ============================================= */
+
+.final-results {
+  animation: fadeIn 0.5s ease;
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.final-results__header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.final-results__title {
+  font-size: var(--font-size-xl);
+  font-weight: 900;
+  color: var(--gold);
+  margin: 0;
+}
+
+.final-results__subtitle {
+  font-size: var(--font-size-md);
+  color: var(--gray);
+  margin: 0.25rem 0 0;
+}
+
+/* 優勝チーム */
+.final-results__winner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, rgba(226, 183, 20, 0.15), rgba(226, 183, 20, 0.05));
+  border: 2px solid var(--gold);
+  border-radius: var(--radius);
+  animation: slideUp 0.6s ease;
+}
+
+.final-results__crown {
+  font-size: var(--font-size-xl);
+}
+
+.final-results__winner-name {
+  font-size: var(--font-size-xl);
+  font-weight: 900;
+}
+
+.final-results__winner-score {
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  color: var(--gold);
+  font-family: "Georgia", serif;
+}
+
+/* ランキング */
+.final-results__ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.final-results__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border-radius: 8px;
+  animation: slideUp 0.4s ease backwards;
+}
+
+.final-results__row:nth-child(1) { animation-delay: 0.1s; }
+.final-results__row:nth-child(2) { animation-delay: 0.2s; }
+.final-results__row:nth-child(3) { animation-delay: 0.3s; }
+.final-results__row:nth-child(4) { animation-delay: 0.4s; }
+.final-results__row:nth-child(5) { animation-delay: 0.5s; }
+
+.final-results__row--first {
+  background: linear-gradient(135deg, rgba(226, 183, 20, 0.2), var(--bg-card));
+  border: 1px solid var(--gold);
+}
+
+.final-results__rank {
+  font-size: var(--font-size-lg);
+  font-weight: 900;
+  width: 2em;
+  text-align: center;
+}
+
+.final-results__team-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.final-results__team-name {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  flex: 1;
+}
+
+.final-results__team-correct {
+  font-size: var(--font-size-sm);
+  color: var(--green);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.final-results__team-score {
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  font-family: "Georgia", serif;
+  color: var(--gold);
+  min-width: 5em;
+  text-align: right;
+}
+
+/* 問題別結果サマリー */
+.final-results__summary {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: 1rem 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.final-results__summary-title {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--gold);
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--bg-card);
+}
+
+.final-results__q-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.final-results__q-row:last-child {
+  border-bottom: none;
+}
+
+.final-results__q-num {
+  font-weight: 800;
+  color: var(--gold);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.final-results__q-text {
+  font-size: var(--font-size-sm);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.final-results__q-answer {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--green);
+  white-space: nowrap;
+}
+
+.final-results__q-odds {
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+/* AdminPanel 終了ボタン */
+.admin-panel__btn--finish {
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  color: var(--bg-primary);
+  font-size: var(--font-size-md);
+  animation: pulse 1.5s infinite;
+}
+
+/* =============================================
    ユーティリティ
    ============================================= */
 

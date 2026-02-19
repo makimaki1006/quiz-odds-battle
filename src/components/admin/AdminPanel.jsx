@@ -30,6 +30,7 @@ export default function AdminPanel() {
     answering: "回答受付中",
     revealing: "結果発表中",
     revealed: "発表完了",
+    finished: "ゲーム終了",
   };
 
   const handleStart = () => {
@@ -153,14 +154,24 @@ export default function AdminPanel() {
           </div>
         )}
 
-        <button
-          className="admin-panel__btn admin-panel__btn--next"
-          onClick={actions.nextQuestion}
-          disabled={isLastQuestion || state.phase !== "revealed"}
-          aria-label="次の問題へ進む"
-        >
-          次の問題 &#9654;
-        </button>
+        {isLastQuestion && state.phase === "revealed" ? (
+          <button
+            className="admin-panel__btn admin-panel__btn--finish"
+            onClick={actions.finishGame}
+            aria-label="ゲームを終了して最終結果を表示"
+          >
+            🏁 最終結果へ
+          </button>
+        ) : (
+          <button
+            className="admin-panel__btn admin-panel__btn--next"
+            onClick={actions.nextQuestion}
+            disabled={isLastQuestion || state.phase !== "revealed"}
+            aria-label="次の問題へ進む"
+          >
+            次の問題 &#9654;
+          </button>
+        )}
 
         <button
           className="admin-panel__btn admin-panel__btn--reset"
