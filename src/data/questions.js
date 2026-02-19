@@ -1,3 +1,4 @@
+// 問題データ: answer フィールドなし (正解はその場で管理者が決定する)
 export const questions = [
   {
     id: 1,
@@ -8,7 +9,6 @@ export const questions = [
       { id: "C", text: "奥穂高岳" },
       { id: "D", text: "間ノ岳" },
     ],
-    answer: "A",
   },
   {
     id: 2,
@@ -19,7 +19,6 @@ export const questions = [
       { id: "C", text: "天王星" },
       { id: "D", text: "海王星" },
     ],
-    answer: "B",
   },
   {
     id: 3,
@@ -30,7 +29,6 @@ export const questions = [
       { id: "C", text: "1872年" },
       { id: "D", text: "1889年" },
     ],
-    answer: "B",
   },
   {
     id: 4,
@@ -41,7 +39,6 @@ export const questions = [
       { id: "C", text: "H2O" },
       { id: "D", text: "O2" },
     ],
-    answer: "C",
   },
   {
     id: 5,
@@ -52,7 +49,6 @@ export const questions = [
       { id: "C", text: "夏目漱石" },
       { id: "D", text: "川端康成" },
     ],
-    answer: "C",
   },
 ];
 

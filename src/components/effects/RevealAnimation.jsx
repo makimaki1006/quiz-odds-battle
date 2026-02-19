@@ -3,15 +3,13 @@ import { useGame } from "../../hooks/useGameState";
 import { questions } from "../../data/questions";
 
 /**
- * 正解発表時のドラマチックなオーバーレイアニメーション
- * phase === "revealing" のときフルスクリーンオーバーレイを表示し、
- * 2秒後に COMPLETE_REVEAL をディスパッチする
+ * 結果発表時のドラマチックなオーバーレイアニメーション
+ * 管理者がその場で選んだ正解を大きく表示する
  */
 export default function RevealAnimation() {
   const { state, actions } = useGame();
   const question = questions[state.currentQuestionIndex];
 
-  // revealing フェーズ開始時に2秒後に完了へ遷移
   useEffect(() => {
     if (state.phase === "revealing") {
       const timer = setTimeout(() => {
@@ -21,11 +19,12 @@ export default function RevealAnimation() {
     }
   }, [state.phase, actions]);
 
-  // revealing フェーズ以外は非表示
-  if (state.phase !== "revealing" || !question) return null;
+  if (state.phase !== "revealing" || !question || !state.revealedAnswer)
+    return null;
 
-  // 正解の選択肢を取得
-  const correctChoice = question.choices.find((c) => c.id === question.answer);
+  const correctChoice = question.choices.find(
+    (c) => c.id === state.revealedAnswer
+  );
   if (!correctChoice) return null;
 
   return (
@@ -33,7 +32,9 @@ export default function RevealAnimation() {
       <p className="reveal-overlay__label">正解は...</p>
       <div className="reveal-overlay__answer">
         <span className="reveal-overlay__answer-id">{correctChoice.id}</span>
-        <span className="reveal-overlay__answer-text">{correctChoice.text}</span>
+        <span className="reveal-overlay__answer-text">
+          {correctChoice.text}
+        </span>
       </div>
     </div>
   );

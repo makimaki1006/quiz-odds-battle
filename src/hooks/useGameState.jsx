@@ -1,9 +1,8 @@
 import { createContext, useContext, useReducer, useCallback } from "react";
 import { questions, teams } from "../data/questions";
 import { calculateOdds } from "../utils/odds";
-import { calculateScores } from "../utils/scoring";
+import { calculateScores, getScoreDelta } from "../utils/scoring";
 
-// --- アクションタイプ ---
 const ActionTypes = {
   START_QUESTION: "START_QUESTION",
   UPDATE_ANSWERS: "UPDATE_ANSWERS",
@@ -14,7 +13,6 @@ const ActionTypes = {
   RESET_GAME: "RESET_GAME",
 };
 
-// --- 初期ステート ---
 function createInitialState() {
   const initialScores = {};
   teams.forEach((team) => {
@@ -22,20 +20,20 @@ function createInitialState() {
   });
 
   return {
-    phase: "waiting", // "waiting" | "answering" | "revealing" | "revealed"
+    phase: "waiting",
     currentQuestionIndex: 0,
-    teamAnswers: {},   // { teamId: choiceId }
-    scores: initialScores, // { teamId: totalScore }
-    odds: {},          // { choiceId: odds }
-    revealedAnswer: null,  // 正解発表時の choiceId
+    teamAnswers: {},
+    scores: initialScores,
+    odds: {},
+    revealedAnswer: null,
+    // 結果履歴: 各問題の正解・オッズ・チーム別スコア変動を記録
+    results: [],
   };
 }
 
-// --- Reducer ---
 function gameReducer(state, action) {
   switch (action.type) {
     case ActionTypes.START_QUESTION: {
-      // 回答フェーズ開始: teamAnswers とオッズをリセット
       return {
         ...state,
         phase: "answering",
@@ -46,7 +44,6 @@ function gameReducer(state, action) {
     }
 
     case ActionTypes.UPDATE_ANSWERS: {
-      // チーム回答を更新し、オッズを再計算
       const { teamAnswers } = action.payload;
       const currentQuestion = questions[state.currentQuestionIndex];
       const newOdds = calculateOdds(
@@ -54,7 +51,6 @@ function gameReducer(state, action) {
         teamAnswers,
         teams.length
       );
-
       return {
         ...state,
         teamAnswers,
@@ -63,40 +59,63 @@ function gameReducer(state, action) {
     }
 
     case ActionTypes.REVEAL_ANSWER: {
-      // 正解発表フェーズ開始
-      const currentQuestion = questions[state.currentQuestionIndex];
+      // 管理者がその場で正解を選択する
+      const { correctAnswer } = action.payload;
       return {
         ...state,
         phase: "revealing",
-        revealedAnswer: currentQuestion.answer,
+        revealedAnswer: correctAnswer,
       };
     }
 
     case ActionTypes.COMPLETE_REVEAL: {
-      // 正解発表完了: スコアを加算
       const currentQuestion = questions[state.currentQuestionIndex];
+      const correctAnswer = state.revealedAnswer;
       const newScores = calculateScores(
         state.scores,
         state.teamAnswers,
-        currentQuestion.answer,
+        correctAnswer,
         state.odds
       );
+
+      // 結果を履歴に記録
+      const teamResults = {};
+      teams.forEach((team) => {
+        const delta = getScoreDelta(
+          team.id,
+          state.teamAnswers,
+          correctAnswer,
+          state.odds
+        );
+        teamResults[team.id] = {
+          answer: state.teamAnswers[team.id] || null,
+          delta,
+          isCorrect: state.teamAnswers[team.id] === correctAnswer,
+        };
+      });
+
+      const result = {
+        questionIndex: state.currentQuestionIndex,
+        questionText: currentQuestion.text,
+        correctAnswer,
+        correctChoiceText: currentQuestion.choices.find(
+          (c) => c.id === correctAnswer
+        )?.text,
+        odds: { ...state.odds },
+        teamResults,
+      };
 
       return {
         ...state,
         phase: "revealed",
         scores: newScores,
+        results: [...state.results, result],
       };
     }
 
     case ActionTypes.NEXT_QUESTION: {
-      // 次の問題へ移行
       const nextIndex = state.currentQuestionIndex + 1;
-      if (nextIndex >= questions.length) {
-        // 全問終了: revealed のまま維持
-        return state;
-      }
-
+      if (nextIndex >= questions.length) return state;
       return {
         ...state,
         phase: "waiting",
@@ -108,12 +127,8 @@ function gameReducer(state, action) {
     }
 
     case ActionTypes.PREV_QUESTION: {
-      // 前の問題に戻る
       const prevIndex = state.currentQuestionIndex - 1;
-      if (prevIndex < 0) {
-        return state;
-      }
-
+      if (prevIndex < 0) return state;
       return {
         ...state,
         phase: "waiting",
@@ -125,7 +140,6 @@ function gameReducer(state, action) {
     }
 
     case ActionTypes.RESET_GAME: {
-      // ゲーム全体をリセット
       return createInitialState();
     }
 
@@ -134,16 +148,10 @@ function gameReducer(state, action) {
   }
 }
 
-// --- Context ---
 const GameContext = createContext(null);
 
-/**
- * ゲーム状態を提供する Context Provider
- * アプリ全体をラップして使用する
- */
 export function GameProvider({ children }) {
   const [state, dispatch] = useReducer(gameReducer, null, createInitialState);
-
   return (
     <GameContext.Provider value={{ state, dispatch }}>
       {children}
@@ -151,10 +159,6 @@ export function GameProvider({ children }) {
   );
 }
 
-/**
- * ゲーム状態と dispatch にアクセスするための hook
- * @returns {{ state: Object, dispatch: Function, actions: Object }}
- */
 export function useGame() {
   const context = useContext(GameContext);
   if (!context) {
@@ -163,7 +167,6 @@ export function useGame() {
 
   const { state, dispatch } = context;
 
-  // --- アクションクリエイター ---
   const startQuestion = useCallback(() => {
     dispatch({ type: ActionTypes.START_QUESTION });
   }, [dispatch]);
@@ -178,9 +181,16 @@ export function useGame() {
     [dispatch]
   );
 
-  const revealAnswer = useCallback(() => {
-    dispatch({ type: ActionTypes.REVEAL_ANSWER });
-  }, [dispatch]);
+  // 管理者がその場で正解を選ぶ
+  const revealAnswer = useCallback(
+    (correctAnswer) => {
+      dispatch({
+        type: ActionTypes.REVEAL_ANSWER,
+        payload: { correctAnswer },
+      });
+    },
+    [dispatch]
+  );
 
   const completeReveal = useCallback(() => {
     dispatch({ type: ActionTypes.COMPLETE_REVEAL });
