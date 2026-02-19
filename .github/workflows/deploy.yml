@@ -26,6 +26,8 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run build
+        env:
+          VITE_GAS_URL: ${{ vars.VITE_GAS_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
