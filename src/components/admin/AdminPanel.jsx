@@ -1,5 +1,6 @@
 import { useGame } from "../../hooks/useGameState";
 import { questions } from "../../data/questions";
+import { startQuestionAPI, resetGameAPI, isConnected } from "../../utils/api";
 
 /**
  * 管理者用操作パネル
@@ -8,19 +9,24 @@ import { questions } from "../../data/questions";
 export default function AdminPanel() {
   const { state, actions } = useGame();
 
-  // URLパラメータで管理者モードを判定
   const isAdmin = new URLSearchParams(window.location.search).get("admin") === "true";
   if (!isAdmin) return null;
 
   const isFirstQuestion = state.currentQuestionIndex === 0;
   const isLastQuestion = state.currentQuestionIndex >= questions.length - 1;
+  const currentQuestion = questions[state.currentQuestionIndex];
 
-  // フェーズに応じた日本語ラベル
   const phaseLabels = {
     waiting: "待機中",
     answering: "回答受付中",
     revealing: "正解発表中",
     revealed: "発表完了",
+  };
+
+  /** 回答開始: GASに通知してからローカル状態を更新 */
+  const handleStart = async () => {
+    await startQuestionAPI(currentQuestion.id);
+    actions.startQuestion();
   };
 
   /** 正解発表: REVEAL_ANSWER -> 2秒後 COMPLETE_REVEAL */
@@ -31,9 +37,10 @@ export default function AdminPanel() {
     }, 2000);
   };
 
-  /** リセット: 確認ダイアログ付き */
-  const handleReset = () => {
+  /** リセット: 確認ダイアログ付き、GAS側もリセット */
+  const handleReset = async () => {
     if (window.confirm("ゲームをリセットしますか？ スコアもすべて初期化されます。")) {
+      await resetGameAPI();
       actions.resetGame();
     }
   };
@@ -42,6 +49,9 @@ export default function AdminPanel() {
     <div className="admin-panel" role="region" aria-label="管理者パネル">
       <div className="admin-panel__header">
         <span className="admin-panel__title">Admin Panel</span>
+        <span className="admin-panel__status">
+          {isConnected() ? "🟢 GAS接続" : "🟡 モック"}
+        </span>
         <span className="admin-panel__info">
           Q.{state.currentQuestionIndex + 1} / {questions.length} --{" "}
           <span className="admin-panel__phase">{phaseLabels[state.phase]}</span>
@@ -49,7 +59,6 @@ export default function AdminPanel() {
       </div>
 
       <div className="admin-panel__controls">
-        {/* 前の問題 */}
         <button
           className="admin-panel__btn admin-panel__btn--prev"
           onClick={actions.prevQuestion}
@@ -59,18 +68,16 @@ export default function AdminPanel() {
           &#9664; 前の問題
         </button>
 
-        {/* 回答開始 */}
         {state.phase === "waiting" && (
           <button
             className="admin-panel__btn admin-panel__btn--start"
-            onClick={actions.startQuestion}
+            onClick={handleStart}
             aria-label="回答を開始する"
           >
             &#9654; 回答開始
           </button>
         )}
 
-        {/* 正解発表 */}
         <button
           className="admin-panel__btn admin-panel__btn--reveal"
           onClick={handleReveal}
@@ -80,7 +87,6 @@ export default function AdminPanel() {
           &#127919; 正解発表
         </button>
 
-        {/* 次の問題 */}
         <button
           className="admin-panel__btn admin-panel__btn--next"
           onClick={actions.nextQuestion}
@@ -90,7 +96,6 @@ export default function AdminPanel() {
           次の問題 &#9654;
         </button>
 
-        {/* リセット */}
         <button
           className="admin-panel__btn admin-panel__btn--reset"
           onClick={handleReset}

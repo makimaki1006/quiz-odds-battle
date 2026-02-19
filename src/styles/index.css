@@ -581,6 +581,9 @@ body {
   font-size: var(--font-size-sm);
   font-weight: 600;
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .score-row__score {
@@ -632,6 +635,13 @@ body {
   color: var(--gold);
   text-transform: uppercase;
   letter-spacing: 0.1em;
+}
+
+.admin-panel__status {
+  font-size: var(--font-size-sm);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .admin-panel__info {

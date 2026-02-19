@@ -2,15 +2,10 @@ const GAS_URL = import.meta.env.VITE_GAS_URL || "";
 
 /**
  * モックデータ: チームの回答をシミュレート
- * @param {number} questionId - 問題ID
- * @param {Array} choices - 選択肢配列
- * @param {Array} teams - チーム配列
- * @returns {Object} { teamId: choiceId } のマップ
  */
 function generateMockAnswers(questionId, choices, teams) {
   const answers = {};
   teams.forEach((team) => {
-    // ランダムに70%の確率で回答済み
     if (Math.random() < 0.7) {
       const randomChoice = choices[Math.floor(Math.random() * choices.length)];
       answers[team.id] = randomChoice.id;
@@ -20,16 +15,37 @@ function generateMockAnswers(questionId, choices, teams) {
 }
 
 /**
+ * GAS APIにPOSTリクエストを送信
+ */
+async function postToGAS(payload) {
+  const response = await fetch(GAS_URL, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return response.json();
+}
+
+/**
+ * 問題の回答受付を開始する (GASに通知)
+ * GAS側で現在のスプレッドシート行を記録し、以降の回答をこの問題に紐付ける
+ */
+export async function startQuestionAPI(questionId) {
+  if (!GAS_URL) return { success: true, mock: true };
+
+  try {
+    return await postToGAS({ action: "startQuestion", questionId });
+  } catch (error) {
+    console.error("startQuestion API error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * チームの回答状況を取得
  * GAS URLが未設定の場合はモックデータを返す
- * @param {number} questionId - 問題ID
- * @param {Array} choices - 選択肢配列
- * @param {Array} teams - チーム配列
- * @returns {Promise<Object>} { teamId: choiceId } のマップ
  */
 export async function fetchTeamAnswers(questionId, choices, teams) {
   if (!GAS_URL) {
-    // モックモード: 300msの遅延でシミュレート
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve(generateMockAnswers(questionId, choices, teams));
@@ -38,14 +54,31 @@ export async function fetchTeamAnswers(questionId, choices, teams) {
   }
 
   try {
-    const response = await fetch(GAS_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "getAnswers", questionId }),
-    });
-    const data = await response.json();
+    const data = await postToGAS({ action: "getAnswers", questionId });
     return data.answers || {};
   } catch (error) {
-    console.error("API fetch error:", error);
+    console.error("fetchTeamAnswers API error:", error);
     return {};
   }
+}
+
+/**
+ * ゲームをリセット (GAS側の状態もクリア)
+ */
+export async function resetGameAPI() {
+  if (!GAS_URL) return { success: true, mock: true };
+
+  try {
+    return await postToGAS({ action: "resetGame" });
+  } catch (error) {
+    console.error("resetGame API error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * GAS接続状態を確認
+ */
+export function isConnected() {
+  return !!GAS_URL;
 }
